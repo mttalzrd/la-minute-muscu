@@ -1,178 +1,349 @@
-// 🎨 COMPOSANT : DailyHub
-// Bloc central du Dashboard — résumé de la journée de l'adhérent
-// INJECTER le design du designer ici
+/**
+ * DailyHub — React Native
+ * Design by Stitch Designer (screen 87acdbacad3e44d6b48c32c613c75c0b)
+ * Transpiled from React Web (Tailwind) → React Native (StyleSheet + Animated)
+ *
+ * Props (designer) :
+ * - sessionName   : string
+ * - calories      : number
+ * - steps         : number
+ * - weightToday   : number
+ * - isWorkoutDone : boolean
+ *
+ * Props (extended — logique app) :
+ * - exerciseCount     : number   (optionnel)
+ * - caloriesTarget    : number   (optionnel)
+ * - stepsTarget       : number   (optionnel)
+ * - onStartWorkout    : () => void
+ * - onToggleWorkoutDone : () => void
+ */
 
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { useRef } from 'react'
+import {
+  View, Text, StyleSheet, TouchableOpacity,
+  Animated, Pressable,
+} from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Feather } from '@expo/vector-icons'
-import { COLORS, SPACING, RADIUS, SHADOWS, GRADIENTS } from '../../constants/design'
+import { MaterialIcons } from '@expo/vector-icons'
+import { COLORS, SPACING, RADIUS } from '../../constants/design'
 
+// ─── Tokens designer ─────────────────────────────────────────
+const PRIMARY        = '#CCFF00'               // lime neon — accent designer
+const PRIMARY_DARK   = '#99BF00'               // ombre 3D du bouton (#99bf00)
+const PRIMARY_30     = 'rgba(204,255,0,0.30)'
+const PRIMARY_5      = 'rgba(204,255,0,0.05)'
+const SURFACE        = '#1A1A24'               // surface-container
+const SURFACE_LOW    = '#111118'               // surface-container-low
+const SURFACE_LOWER  = '#0A0A0F'               // surface-container-lowest
+const ON_SURFACE     = COLORS.textPrimary
+const ON_SURFACE_V   = COLORS.textSecondary
+const WHITE_5        = 'rgba(255,255,255,0.05)'
+const WHITE_10       = 'rgba(255,255,255,0.10)'
+const WHITE_3        = 'rgba(255,255,255,0.03)'
+
+// ─── Interface ───────────────────────────────────────────────
 export interface DailyHubProps {
-  // Séance du jour
-  sessionName?: string | null    // null = jour de repos
-  exerciseCount?: number
-  onStartWorkout?: () => void
+  // Props designer (required)
+  sessionName:   string
+  calories:      number
+  steps:         number
+  weightToday:   number
+  isWorkoutDone: boolean
 
-  // Stats journalières
-  calories?: number
-  caloriesTarget?: number
-  steps?: number
-  stepsTarget?: number
-  weightToday?: number
-
-  // État
-  isWorkoutDone?: boolean
+  // Props étendues (logique app)
+  exerciseCount?:       number
+  caloriesTarget?:      number
+  stepsTarget?:         number
+  onStartWorkout?:      () => void
   onToggleWorkoutDone?: () => void
 }
 
-// 🎨 TODO : Injecter le design DailyHub du designer
+// ─── Composant ───────────────────────────────────────────────
 export function DailyHub({
   sessionName,
-  exerciseCount = 0,
-  onStartWorkout,
-  calories = 0,
-  caloriesTarget = 2500,
-  steps = 0,
-  stepsTarget = 10000,
+  calories,
+  steps,
   weightToday,
-  isWorkoutDone = false,
-  onToggleWorkoutDone,
+  isWorkoutDone,
+  onStartWorkout,
 }: DailyHubProps) {
-  const calRatio   = Math.min((calories / caloriesTarget) * 100, 100)
-  const stepsRatio = Math.min((steps / stepsTarget) * 100, 100)
+
+  // Animation 3D du bouton CTA (pression → translateY)
+  const btnAnim = useRef(new Animated.Value(0)).current
+
+  const onPressIn = () => {
+    Animated.spring(btnAnim, {
+      toValue: 6,        // bouton "s'enfonce" de 6px
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start()
+  }
+
+  const onPressOut = () => {
+    Animated.spring(btnAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 4,
+    }).start()
+  }
+
+  const metrics = [
+    { label: 'KCAL',   value: String(calories),              icon: 'local-fire-department' as const },
+    { label: 'STEPS',  value: steps.toLocaleString('fr-FR'), icon: 'directions-walk'       as const },
+    { label: 'WEIGHT', value: `${weightToday}kg`,            icon: 'scale'                 as const },
+  ]
 
   return (
-    <View style={styles.container}>
-      {/* Séance du jour */}
-      {sessionName ? (
-        <TouchableOpacity onPress={onStartWorkout} activeOpacity={0.9}>
-          <LinearGradient colors={['#1A1A24', '#111118']} style={styles.sessionCard}>
-            <LinearGradient colors={GRADIENTS.gold} style={styles.sessionIcon}>
-              <Feather name="zap" size={22} color="#000" />
-            </LinearGradient>
-            <View style={styles.sessionInfo}>
-              <Text style={styles.sessionLabel}>SÉANCE DU JOUR</Text>
-              <Text style={styles.sessionName}>{sessionName}</Text>
-              <Text style={styles.sessionMeta}>{exerciseCount} exercices · Commencer →</Text>
+    <View style={styles.card}>
+
+      {/* ── Ligne gradient supérieure ──────────────────── */}
+      {/* bg-gradient-to-r from-transparent via-primary/30 to-transparent */}
+      <LinearGradient
+        colors={['transparent', PRIMARY_30, 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.topLine}
+      />
+
+      {/* ── Section Session ────────────────────────────── */}
+      <View style={styles.sessionSection}>
+
+        {/* Today's Protocol label */}
+        <Text style={styles.protocolLabel}>TODAY'S PROTOCOL</Text>
+
+        {/* Nom de la séance — italic uppercase font-black */}
+        <Text style={styles.sessionName} numberOfLines={2}>
+          {sessionName}
+        </Text>
+
+        {/* ── Bouton CTA 3D Bevel ──────────────────────── */}
+        {isWorkoutDone ? (
+          /* État : terminé — grisé, pas interactif */
+          <View style={styles.btnDoneWrapper}>
+            <View style={styles.btnDone}>
+              <MaterialIcons name="check-circle" size={20} color={ON_SURFACE_V} />
+              <Text style={styles.btnDoneText}>SESSION COMPLETED</Text>
             </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.restDay}>
-          <Text style={{ fontSize: 28 }}>☕</Text>
-          <Text style={styles.restText}>Jour de repos — Récupère bien !</Text>
-        </View>
-      )}
+          </View>
+        ) : (
+          /* État : actif — bouton lime 3D avec ombre pressable */
+          <View style={styles.btnActiveOuter}>
+            {/* Couche ombre 3D (le "socle" #99bf00) */}
+            <View style={styles.btnShadowLayer} />
 
-      {/* Grille stats */}
-      <View style={styles.statsGrid}>
-        {/* Calories */}
-        <View style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <Feather name="flame" size={14} color={COLORS.red} />
-            <Text style={styles.statLabel}>Calories</Text>
+            {/* Face avant du bouton — s'anime vers le bas au press */}
+            <Pressable
+              onPressIn={onPressIn}
+              onPressOut={onPressOut}
+              onPress={onStartWorkout}
+            >
+              <Animated.View
+                style={[
+                  styles.btnActiveFront,
+                  { transform: [{ translateY: btnAnim }] },
+                ]}
+              >
+                <MaterialIcons name="fitness-center" size={20} color={SURFACE_LOWER} />
+                <Text style={styles.btnActiveText}>START WORKOUT</Text>
+              </Animated.View>
+            </Pressable>
           </View>
-          <Text style={[styles.statValue, { color: COLORS.red }]}>{calories}</Text>
-          <Text style={styles.statTarget}>/ {caloriesTarget} kcal</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${calRatio}%`, backgroundColor: COLORS.red }]} />
-          </View>
-        </View>
-
-        {/* Pas */}
-        <View style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <Feather name="map" size={14} color={COLORS.green} />
-            <Text style={styles.statLabel}>Pas</Text>
-          </View>
-          <Text style={[styles.statValue, { color: COLORS.green }]}>
-            {steps >= 1000 ? `${(steps / 1000).toFixed(1)}k` : steps}
-          </Text>
-          <Text style={styles.statTarget}>/ {(stepsTarget / 1000).toFixed(0)}k pas</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${stepsRatio}%`, backgroundColor: COLORS.green }]} />
-          </View>
-        </View>
-
-        {/* Poids */}
-        <View style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <Feather name="activity" size={14} color={COLORS.goldPrimary} />
-            <Text style={styles.statLabel}>Poids</Text>
-          </View>
-          <Text style={[styles.statValue, { color: COLORS.goldPrimary }]}>
-            {weightToday ? `${weightToday}` : '—'}
-          </Text>
-          <Text style={styles.statTarget}>kg aujourd'hui</Text>
-        </View>
+        )}
       </View>
 
-      {/* Toggle séance faite */}
-      <TouchableOpacity
-        onPress={onToggleWorkoutDone}
-        style={[styles.doneToggle, isWorkoutDone && styles.doneToggleActive]}
-        activeOpacity={0.85}
-      >
-        <Feather
-          name={isWorkoutDone ? 'check-circle' : 'circle'}
-          size={18}
-          color={isWorkoutDone ? COLORS.green : COLORS.textMuted}
-        />
-        <Text style={[styles.doneToggleText, isWorkoutDone && { color: COLORS.green }]}>
-          {isWorkoutDone ? 'Séance effectuée ✓' : 'Marquer la séance comme terminée'}
-        </Text>
-      </TouchableOpacity>
+      {/* ── Grille métriques — Bevel inset ─────────────── */}
+      <View style={styles.metricsGrid}>
+        {metrics.map((m) => (
+          <View key={m.label} style={styles.metricCard}>
+            {/* Icon wrapper */}
+            <View style={styles.metricIconBg}>
+              <MaterialIcons name={m.icon} size={14} color={ON_SURFACE_V} style={{ opacity: 0.7 }} />
+            </View>
+
+            {/* Label */}
+            <Text style={styles.metricLabel}>{m.label}</Text>
+
+            {/* Valeur */}
+            <Text style={styles.metricValue}>{m.value}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   )
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { gap: SPACING.lg },
 
-  sessionCard: {
-    borderRadius: RADIUS.xl, padding: SPACING.xl,
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.borderGold,
-    ...SHADOWS.gold,
+  // Carte principale
+  card: {
+    backgroundColor: SURFACE,
+    borderRadius: RADIUS.xl + 4,   // rounded-3xl ≈ 24px
+    borderWidth: 1,
+    borderColor: WHITE_10,
+    padding: SPACING.xxl,
+    overflow: 'hidden',
+    position: 'relative',
+    // shadow-2xl
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.5,
+    shadowRadius: 32,
+    elevation: 20,
   },
-  sessionIcon: {
-    width: 50, height: 50, borderRadius: RADIUS.lg,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  sessionInfo: { flex: 1 },
-  sessionLabel: {
-    fontSize: 10, fontWeight: '700', color: COLORS.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3,
-  },
-  sessionName: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: -0.3 },
-  sessionMeta: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3 },
 
-  restDay: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
-    backgroundColor: COLORS.bgElevated, borderRadius: RADIUS.lg,
-    borderWidth: 1, borderColor: COLORS.borderSubtle, padding: SPACING.xl,
+  // Ligne gradient 1px en haut
+  topLine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
   },
-  restText: { fontSize: 15, color: COLORS.textSecondary },
 
-  statsGrid: { flexDirection: 'row', gap: SPACING.md },
-  statCard: {
-    flex: 1, backgroundColor: COLORS.bgElevated,
-    borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.borderSubtle,
-    padding: SPACING.md, gap: 3,
-    ...SHADOWS.card,
+  // ── Section session
+  sessionSection: {
+    marginBottom: SPACING.xxl,
+    alignItems: 'center',
+    paddingTop: SPACING.sm,   // espace après la ligne gradient
   },
-  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
-  statLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statValue: { fontSize: 22, fontWeight: '700', letterSpacing: -0.5 },
-  statTarget: { fontSize: 10, color: COLORS.textMuted },
-  progressBar: { height: 3, backgroundColor: COLORS.bgOverlay, borderRadius: 2, marginTop: 6, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2 },
 
-  doneToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
-    backgroundColor: COLORS.bgElevated, borderRadius: RADIUS.lg,
-    borderWidth: 1, borderColor: COLORS.borderSubtle, padding: SPACING.lg,
+  protocolLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: ON_SURFACE_V,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: SPACING.sm,
+    opacity: 0.6,
   },
-  doneToggleActive: { borderColor: 'rgba(16,185,129,0.3)', backgroundColor: 'rgba(16,185,129,0.05)' },
-  doneToggleText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+
+  sessionName: {
+    fontSize: 22,
+    fontWeight: '900',   // font-black
+    color: ON_SURFACE,
+    letterSpacing: -0.5,
+    textTransform: 'uppercase',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+    lineHeight: 28,
+  },
+
+  // ── Bouton terminé (grisé)
+  btnDoneWrapper: {
+    width: '100%',
+  },
+  btnDone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.xl,
+    backgroundColor: '#2A2A36',
+    borderWidth: 1,
+    borderColor: WHITE_5,
+    opacity: 0.5,
+  },
+  btnDoneText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: ON_SURFACE_V,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+  },
+
+  // ── Bouton CTA 3D actif
+  btnActiveOuter: {
+    width: '100%',
+    position: 'relative',
+  },
+
+  // Couche ombre 3D (#99bf00) — socle visible en bas
+  btnShadowLayer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 54,          // même hauteur que le bouton
+    backgroundColor: PRIMARY_DARK,
+    borderRadius: RADIUS.xl,
+  },
+
+  // Face avant du bouton (lime vif) — translateY animé
+  btnActiveFront: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.xl,
+    backgroundColor: PRIMARY,
+    // Halo glow
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
+    // Décalage initial (bouton "flotte" au-dessus de l'ombre)
+    marginBottom: 6,
+  },
+  btnActiveText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: SURFACE_LOWER,   // texte sombre sur fond lime
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+  },
+
+  // ── Grille métriques
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+
+  metricCard: {
+    flex: 1,
+    backgroundColor: SURFACE_LOW,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: WHITE_5,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    // Bevel inset — bord haut clair / bas sombre
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: -2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  metricIconBg: {
+    backgroundColor: `${SURFACE_LOWER}80`,
+    borderRadius: RADIUS.sm,
+    padding: 6,
+    marginBottom: 3,
+  },
+
+  metricLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: ON_SURFACE_V,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    opacity: 0.5,
+  },
+
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: ON_SURFACE,
+    letterSpacing: -0.5,
+  },
 })

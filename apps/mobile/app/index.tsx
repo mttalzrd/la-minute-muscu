@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Feather } from '@expo/vector-icons'
 import { router } from 'expo-router'
+import { DailyHub } from '../src/components/home/DailyHub'
 import { supabase } from '../src/lib/supabase'
 import { saveTrackingOffline } from '../src/lib/offline/db'
 import { COLORS, SPACING, RADIUS, SHADOWS, GRADIENTS } from '../src/constants/design'
@@ -103,35 +104,25 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* CTA Séance */}
-        {todaySession ? (
-          <TouchableOpacity
-            onPress={() => router.push(`/workout/${todaySession.id}`)}
-            style={styles.ctaWrapper}
-            activeOpacity={0.9}
-          >
-            <LinearGradient colors={['#1A1A24', '#111118']} style={styles.ctaCard}>
-              <LinearGradient colors={GRADIENTS.gold} style={styles.ctaIconWrapper}>
-                <Feather name="zap" size={24} color="#000" />
-              </LinearGradient>
-              <View style={styles.ctaText}>
-                <Text style={styles.ctaTitle}>Séance du jour</Text>
-                <Text style={styles.ctaSession}>{todaySession.nom}</Text>
-                <Text style={styles.ctaExCount}>
-                  {todaySession.session_exercises?.length ?? 0} exercices
-                </Text>
-              </View>
-              <View style={styles.ctaArrow}>
-                <Feather name="chevron-right" size={22} color={COLORS.goldPrimary} />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : !loading ? (
-          <View style={styles.noSessionCard}>
-            <Feather name="coffee" size={28} color={COLORS.textMuted} />
-            <Text style={styles.noSessionText}>Jour de repos — Récupère bien ! 💤</Text>
-          </View>
-        ) : null}
+        {/* ── DailyHub — Composant designer (screen 87acdbacad3e44d6b48c32c613c75c0b) ── */}
+        {!loading && (
+          <DailyHub
+            sessionName={todaySession?.nom ?? 'Jour de repos ☕'}
+            calories={tracking?.calories_consommees ?? 0}
+            steps={tracking?.pas_quotidiens ?? 0}
+            weightToday={poids ? +poids : (tracking?.poids_du_jour ?? 0)}
+            isWorkoutDone={tracking?.is_workout_done ?? false}
+            exerciseCount={todaySession?.session_exercises?.length ?? 0}
+            onStartWorkout={
+              todaySession
+                ? () => router.push(`/workout/${todaySession.id}`)
+                : undefined
+            }
+            onToggleWorkoutDone={() =>
+              saveTracking({ is_workout_done: !(tracking?.is_workout_done ?? false) })
+            }
+          />
+        )}
 
         {/* Saisie rapide */}
         <View style={styles.quickInputSection}>
