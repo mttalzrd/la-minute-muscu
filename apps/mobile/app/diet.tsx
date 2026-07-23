@@ -1,51 +1,38 @@
+/**
+ * DietScreen — Onglet Diététique
+ * Logique Supabase conservée intégralement.
+ * Rendu délégué au composant designer NutritionDashboard.
+ */
 import { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, SafeAreaView,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { Feather } from '@expo/vector-icons'
-import { supabase } from '../../src/lib/supabase'
-import { saveTrackingOffline } from '../../src/lib/offline/db'
-import { COLORS, SPACING, RADIUS, SHADOWS, GRADIENTS } from '../../src/constants/design'
+import { NutritionDashboard } from '../src/components/diet/NutritionDashboard'
+import { supabase } from '../src/lib/supabase'
+import { saveTrackingOffline } from '../src/lib/offline/db'
+import { COLORS, SPACING, RADIUS, SHADOWS } from '../src/constants/design'
 
+// ─── Types ────────────────────────────────────────────────────
 type MacroTargets = { calories: number; proteines: number; glucides: number; lipides: number }
 
 const REPAS_PRESETS = [
-  { label: '3 repas', repas: 3 },
-  { label: '3 + 1 collation', repas: 4 },
-  { label: '5 repas', repas: 5 },
-  { label: '6 repas', repas: 6 },
+  { label: '3 repas',      repas: 3 },
+  { label: '3 + 1 snack',  repas: 4 },
+  { label: '5 repas',      repas: 5 },
+  { label: '6 repas',      repas: 6 },
 ]
 
-function CircularProgress({ value, max, size, color, label }: { value: number; max: number; size: number; color: string; label: string }) {
-  const percentage = Math.min((value / max) * 100, 100)
-  const radius = (size - 12) / 2
-  const circumference = 2 * Math.PI * radius
-  const strokeDashoffset = circumference - (percentage / 100) * circumference
-
-  return (
-    <View style={{ alignItems: 'center', gap: 6 }}>
-      <View style={{ width: size, height: size }}>
-        <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20` }} />
-        <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color }}>{Math.round(percentage)}%</Text>
-        </View>
-      </View>
-      <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textSecondary }}>{label}</Text>
-      <Text style={{ fontSize: 11, color: COLORS.textMuted }}>{value}g / {max}g</Text>
-    </View>
-  )
-}
-
+// ─── Écran ────────────────────────────────────────────────────
 export default function DietScreen() {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [targets, setTargets] = useState<MacroTargets>({ calories: 2500, proteines: 180, glucides: 280, lipides: 75 })
-  const [current, setCurrent] = useState({ calories: 0, proteines: 0, glucides: 0, lipides: 0 })
+  const [userId,   setUserId]   = useState<string | null>(null)
+  const [targets,  setTargets]  = useState<MacroTargets>({ calories: 2500, proteines: 180, glucides: 280, lipides: 75 })
+  const [current,  setCurrent]  = useState({ calories: 0, proteines: 0, glucides: 0, lipides: 0 })
   const [nbrRepas, setNbrRepas] = useState(4)
   const [calories, setCalories] = useState('')
   const today = new Date().toISOString().split('T')[0]
 
+  // ── Chargement Supabase ──────────────────────────────────
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -67,52 +54,49 @@ export default function DietScreen() {
     init()
   }, [today])
 
+  // ── Estimation macros depuis les kcal ────────────────────
   function computeFromCalories(kcal: number, t: MacroTargets) {
     const ratio = kcal / t.calories
     return {
-      calories: kcal,
+      calories:  kcal,
       proteines: Math.round(t.proteines * ratio),
-      glucides: Math.round(t.glucides * ratio),
-      lipides: Math.round(t.lipides * ratio),
+      glucides:  Math.round(t.glucides  * ratio),
+      lipides:   Math.round(t.lipides   * ratio),
     }
   }
 
+  // ── Save calories (offline-first + Supabase) ─────────────
   const saveCalories = useCallback(async () => {
     if (!userId || !calories) return
     const kcal = +calories
     setCurrent(computeFromCalories(kcal, targets))
-
     const id = `track-${userId}-${today}`
     await saveTrackingOffline({ id, user_id: userId, date: today, calories_consommees: kcal })
     await supabase.from('tracking_activity').upsert({ id, user_id: userId, date: today, calories_consommees: kcal })
   }, [userId, calories, targets, today])
 
-  const perRepas = (value: number) => (value / nbrRepas).toFixed(0)
-
-  const macros = [
-    { label: 'Protéines', key: 'proteines' as const, color: COLORS.blue, unit: 'g', kcalPerG: 4 },
-    { label: 'Glucides', key: 'glucides' as const, color: COLORS.goldPrimary, unit: 'g', kcalPerG: 4 },
-    { label: 'Lipides', key: 'lipides' as const, color: COLORS.green, unit: 'g', kcalPerG: 9 },
-  ]
-
-  const caloriesRatio = Math.min((+calories / targets.calories) * 100, 100)
+  const kcalConsoNum = +calories || 0
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Header page ──────────────────────────────── */}
         <View style={styles.pageHeader}>
           <Text style={styles.pageTitle}>Diététique</Text>
-          <Text style={styles.pageSubtitle}>{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+          <Text style={styles.pageSubtitle}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
         </View>
 
-        {/* Calories principale */}
-        <LinearGradient colors={['#1A1A24', '#111118']} style={styles.caloriesCard}>
-          <LinearGradient colors={GRADIENTS.gold} style={styles.caloriesIconBg}>
-            <Feather name="flame" size={20} color="#000" />
-          </LinearGradient>
-          <View style={styles.caloriesInfo}>
-            <Text style={styles.caloriesLabel}>Kcal consommées</Text>
-            <View style={styles.caloriesRow}>
+        {/* ── Saisie rapide calories (conservée) ───────── */}
+        <View style={styles.inputCard}>
+          <View style={styles.inputCardLeft}>
+            <Text style={styles.inputLabel}>KCAL CONSOMMÉES</Text>
+            <View style={styles.inputRow}>
               <TextInput
                 style={styles.caloriesInput}
                 value={calories}
@@ -125,54 +109,39 @@ export default function DietScreen() {
               <Text style={styles.caloriesTarget}>/ {targets.calories} kcal</Text>
             </View>
           </View>
-        </LinearGradient>
-
-        {/* Barre progression calories */}
-        <View style={styles.caloriesBar}>
-          <View style={[styles.caloriesBarFill, { width: `${caloriesRatio}%` }]} />
-        </View>
-        <Text style={styles.caloriesBarLabel}>
-          {caloriesRatio >= 100 ? '⚡ Objectif atteint !' : `${(targets.calories - +calories).toFixed(0)} kcal restantes`}
-        </Text>
-
-        {/* Macros circulaires */}
-        <View style={styles.macrosCard}>
-          <Text style={styles.sectionTitle}>Macronutriments</Text>
-          <View style={styles.macrosRow}>
-            {macros.map(m => (
-              <CircularProgress
-                key={m.key}
-                value={current[m.key]}
-                max={targets[m.key]}
-                size={96}
-                color={m.color}
-                label={m.label}
-              />
-            ))}
-          </View>
-
-          {/* Détails */}
-          <View style={styles.macroDetails}>
-            {macros.map(m => (
-              <View key={m.key} style={styles.macroDetailRow}>
-                <View style={[styles.macroDot, { backgroundColor: m.color }]} />
-                <Text style={styles.macroDetailLabel}>{m.label}</Text>
-                <Text style={styles.macroDetailValue}>{current[m.key]}g</Text>
-                <Text style={styles.macroDetailTarget}>/ {targets[m.key]}g</Text>
-                <Text style={styles.macroDetailKcal}>({current[m.key] * m.kcalPerG} kcal)</Text>
-              </View>
-            ))}
+          <View style={styles.inputCardRight}>
+            <Text style={styles.remainingLabel}>Restantes</Text>
+            <Text style={styles.remainingValue}>
+              {Math.max(targets.calories - kcalConsoNum, 0)}
+            </Text>
           </View>
         </View>
 
-        {/* Répartition par repas */}
-        <View style={styles.repasCard}>
-          <Text style={styles.sectionTitle}>Répartition par repas</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.lg }}>
-            <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+        {/* ── NutritionDashboard — Composant designer ───── */}
+        {/* screen f56748548b174c9487e94036c4281e09         */}
+        <NutritionDashboard
+          consumedCalories={kcalConsoNum}
+          totalCalories={targets.calories}
+          proteinCurrent={current.proteines}
+          proteinTarget={targets.proteines}
+          carbCurrent={current.glucides}
+          carbTarget={targets.glucides}
+          fatCurrent={current.lipides}
+          fatTarget={targets.lipides}
+          nbrRepas={nbrRepas}
+        />
+
+        {/* ── Sélecteur nb repas (conservé sous le dashboard) */}
+        <View style={styles.repasSelector}>
+          <Text style={styles.sectionLabel}>RÉPARTITION</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.repasTabs}>
+            <View style={styles.repasTabRow}>
               {REPAS_PRESETS.map(p => (
-                <TouchableOpacity key={p.label} onPress={() => setNbrRepas(p.repas)}
-                  style={[styles.repasTab, nbrRepas === p.repas && styles.repasTabActive]}>
+                <TouchableOpacity
+                  key={p.label}
+                  onPress={() => setNbrRepas(p.repas)}
+                  style={[styles.repasTab, nbrRepas === p.repas && styles.repasTabActive]}
+                >
                   <Text style={[styles.repasTabText, nbrRepas === p.repas && styles.repasTabTextActive]}>
                     {p.label}
                   </Text>
@@ -180,103 +149,66 @@ export default function DietScreen() {
               ))}
             </View>
           </ScrollView>
-
-          {Array.from({ length: nbrRepas }).map((_, i) => {
-            const isCollation = nbrRepas === 4 && i === 2
-            return (
-              <View key={i} style={styles.repasRow}>
-                <View style={styles.repasNumBadge}>
-                  <Text style={styles.repasNumText}>{isCollation ? '🍎' : `R${i + 1}`}</Text>
-                </View>
-                <View style={styles.repasContent}>
-                  <Text style={styles.repasLabel}>{isCollation ? 'Collation' : `Repas ${i + 1}`}</Text>
-                  <View style={{ flexDirection: 'row', gap: SPACING.sm, marginTop: 4 }}>
-                    <Text style={[styles.repasValue, { color: COLORS.red }]}>{perRepas(targets.calories)} kcal</Text>
-                    <Text style={[styles.repasValue, { color: COLORS.blue }]}>{perRepas(targets.proteines)}g P</Text>
-                    <Text style={[styles.repasValue, { color: COLORS.goldPrimary }]}>{perRepas(targets.glucides)}g G</Text>
-                    <Text style={[styles.repasValue, { color: COLORS.green }]}>{perRepas(targets.lipides)}g L</Text>
-                  </View>
-                </View>
-              </View>
-            )
-          })}
         </View>
+
       </ScrollView>
     </SafeAreaView>
   )
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bgBase },
-  scroll: { flex: 1 },
-  container: { padding: SPACING.xl, paddingBottom: 40 },
+  safe:      { flex: 1, backgroundColor: COLORS.bgBase },
+  scroll:    { flex: 1 },
+  container: { padding: SPACING.xl, paddingBottom: 40, gap: SPACING.xl },
 
-  pageHeader: { marginBottom: SPACING.xl },
-  pageTitle: { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: -0.5 },
+  // Header
+  pageHeader: { marginBottom: SPACING.sm },
+  pageTitle:  { fontSize: 26, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: -0.5 },
   pageSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
 
-  caloriesCard: {
-    borderRadius: RADIUS.xl, padding: SPACING.xl,
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.lg,
-    borderWidth: 1, borderColor: COLORS.borderGold,
-    marginBottom: SPACING.md,
+  // Saisie calories rapide
+  inputCard: {
+    backgroundColor: COLORS.bgElevated,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.borderGold,
+    padding: SPACING.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.lg,
     ...SHADOWS.gold,
   },
-  caloriesIconBg: {
-    width: 48, height: 48, borderRadius: RADIUS.lg,
-    alignItems: 'center', justifyContent: 'center',
+  inputCardLeft: { flex: 1 },
+  inputLabel: {
+    fontSize: 10, fontWeight: '700', color: COLORS.textMuted,
+    textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6,
   },
-  caloriesInfo: { flex: 1 },
-  caloriesLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  caloriesRow: { flexDirection: 'row', alignItems: 'baseline', gap: SPACING.sm },
-  caloriesInput: { fontSize: 36, fontWeight: '700', color: COLORS.goldPrimary, letterSpacing: -1, minWidth: 80 },
+  inputRow: { flexDirection: 'row', alignItems: 'baseline', gap: SPACING.sm },
+  caloriesInput: {
+    fontSize: 34, fontWeight: '700', color: COLORS.goldPrimary,
+    letterSpacing: -1, minWidth: 80,
+  },
   caloriesTarget: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600' },
+  inputCardRight: { alignItems: 'flex-end' },
+  remainingLabel: { fontSize: 10, color: COLORS.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  remainingValue: { fontSize: 22, fontWeight: '900', color: COLORS.textPrimary, letterSpacing: -1, marginTop: 2 },
 
-  caloriesBar: { height: 6, backgroundColor: COLORS.bgOverlay, borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
-  caloriesBarFill: { height: '100%', backgroundColor: COLORS.goldPrimary, borderRadius: 3 },
-  caloriesBarLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: SPACING.xl, textAlign: 'right' },
-
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.lg },
-
-  macrosCard: {
-    backgroundColor: COLORS.bgElevated, borderRadius: RADIUS.xl,
-    borderWidth: 1, borderColor: COLORS.borderSubtle,
-    padding: SPACING.xl, marginBottom: SPACING.xl,
-    ...SHADOWS.card,
+  // Sélecteur repas
+  repasSelector: { gap: SPACING.sm },
+  sectionLabel: {
+    fontSize: 10, fontWeight: '700', color: COLORS.textMuted,
+    textTransform: 'uppercase', letterSpacing: 1.5,
   },
-  macrosRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: SPACING.xl },
-
-  macroDetails: { gap: SPACING.sm },
-  macroDetailRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  macroDot: { width: 8, height: 8, borderRadius: 4 },
-  macroDetailLabel: { flex: 1, fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
-  macroDetailValue: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  macroDetailTarget: { fontSize: 12, color: COLORS.textMuted },
-  macroDetailKcal: { fontSize: 11, color: COLORS.textMuted },
-
-  repasCard: {
-    backgroundColor: COLORS.bgElevated, borderRadius: RADIUS.xl,
-    borderWidth: 1, borderColor: COLORS.borderSubtle,
-    padding: SPACING.xl, marginBottom: SPACING.xl,
-    ...SHADOWS.card,
-  },
+  repasTabs: { flexGrow: 0 },
+  repasTabRow: { flexDirection: 'row', gap: SPACING.sm },
   repasTab: {
     paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.borderSubtle,
+    borderRadius: RADIUS.full, borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
     backgroundColor: COLORS.bgOverlay,
   },
   repasTabActive: { borderColor: COLORS.borderGold, backgroundColor: 'rgba(245,158,11,0.1)' },
-  repasTabText: { fontSize: 13, fontWeight: '600', color: COLORS.textMuted },
+  repasTabText:       { fontSize: 13, fontWeight: '600', color: COLORS.textMuted },
   repasTabTextActive: { color: COLORS.goldPrimary },
-
-  repasRow: { flexDirection: 'row', gap: SPACING.md, alignItems: 'center', marginBottom: SPACING.md },
-  repasNumBadge: {
-    width: 36, height: 36, borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.bgOverlay, borderWidth: 1, borderColor: COLORS.borderSubtle,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  repasNumText: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary },
-  repasContent: { flex: 1 },
-  repasLabel: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  repasValue: { fontSize: 12, fontWeight: '600' },
 })
