@@ -35,7 +35,7 @@ export default function RootLayout() {
               paddingBottom: 16,
               paddingTop: 10,
             },
-            tabBarActiveTintColor: '#F59E0B',
+            tabBarActiveTintColor: '#CCFF00',
             tabBarInactiveTintColor: '#555568',
             tabBarLabelStyle: {
               fontSize: 11,
@@ -85,6 +85,15 @@ export default function RootLayout() {
               title: 'Messages',
               tabBarIcon: ({ color, size }) => (
                 <TabIcon name="message-circle" color={color} size={size} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: 'Profil',
+              tabBarIcon: ({ color, size }) => (
+                <TabIcon name="user" color={color} size={size} />
               ),
             }}
           />
